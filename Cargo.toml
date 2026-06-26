@@ -1,0 +1,7 @@
+[workspace]
+members = ["nimblecube-core"]
+resolver = "2"
+
+# `nimblecube-esp32/` and `nimblecube-firmware/` are standalone (each has its own
+# `[workspace]`) because they target microcontrollers, not the host - so they
+# are intentionally excluded from this workspace and built separately.

@@ -1,0 +1,20 @@
+[package]
+name = "nimblecube-firmware"
+version = "0.1.0"
+edition = "2021"
+
+# Standalone workspace so the root `cargo test`/`build` ignores this thumb-only crate.
+[workspace]
+
+[dependencies]
+nimblecube-core = { path = "../nimblecube-core" }
+
+[[bin]]
+name = "nimblecube-firmware"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = "z"
+lto = true
+panic = "abort"
+codegen-units = 1
