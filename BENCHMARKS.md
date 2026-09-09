@@ -156,3 +156,48 @@ per insert. `cd nimblecube-esp32 && cargo run --release --bin net_tree_bench`.
 Recall is the number to watch rather than speed. The detector's decision is `d > threshold`, so a
 missed nearest returns an inflated `d` and shows up as a **false alarm**. At 100% recall the index is
 behaviorally identical to a full scan, which is what makes it safe to substitute.
+
+## 9. SimHash encode cost: is on-device embedding encoding viable?
+
+`simhash_*` projects a dense float embedding into an `Hv`, costing 4096 bits × D input elements.
+That is orders of magnitude more work than `FeatureEncoder`, so it decides whether embeddings can
+be encoded on the device at all. Measured on-chip:
+
+| encoder | per vector |
+|---|---|
+| `FeatureEncoder<3,16>` (sensor features) | 115 µs |
+| `simhash_i32`, D=128 | 103 ms |
+| `simhash_i32`, D=384 | 304 ms |
+| **`simhash_i32`, D=768** (typical embedding) | **607 ms** |
+| **`simhash_f32`, D=768** | **342 ms** |
+
+Cost is exactly linear in D (0.79 ms per dimension at every size). **On-device embedding encoding
+is not viable**: one 768-d vector costs 0.6 s, and a 12,000-item corpus would take over two hours.
+
+The architecture that does work is **encode off-device, search on-device**. Search is unaffected
+(`hamming` 8.8 µs, and §8 gets 12,000 items to 5.4 ms), so a host produces the hypervector and the
+device stores and searches it.
+
+**`simhash_f32` is 1.77× faster than `simhash_i32` and produces bit-identical codes** (measured
+Hamming between the two outputs: 0). The integer path accumulates into `i64` on a 32-bit core, so
+each add is multi-instruction, while the LX7 has a single-precision FPU. Prefer the float path on
+any target with an FPU. `cd nimblecube-esp32 && cargo run --release --bin simhash_bench`.
+
+### Where encode time actually goes
+
+Measured in one binary, so the parts are comparable to each other:
+
+| part | time | share of `encode` |
+|---|---|---|
+| `Hv::hamming` (reference point) | 8.8 µs | - |
+| 3 × `bind` | 20.8 µs | 18% |
+| `bundle` of 3 | 80.3 µs | 70% |
+| `encode` (whole) | 115.1 µs | 100% |
+
+`bundle` dominates. For small odd `CH` its bit-sliced counters do far more work than a closed-form
+majority (`(a&b)|(a&c)|(b&c)`) would, which is the obvious lever and is **not yet measured on-chip**.
+
+> **Caution on absolute figures.** `FeatureEncoder::encode` measured 92.7 µs, 103.4 µs and 115.1 µs
+> in three different binaries in one session, from code layout and instruction-cache effects alone.
+> That ±20% is larger than most optimizations worth chasing, so only compare variants built into the
+> **same binary**, and treat any single absolute encode number as approximate.
