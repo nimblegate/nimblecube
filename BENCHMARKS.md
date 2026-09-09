@@ -72,6 +72,10 @@ PSRAM buys **capacity, not speed**: it has access latency internal SRAM lacks, s
 thousands of vectors is hundreds of ms. That motivates the index below.
 `cd nimblecube-esp32 && cargo run --release --bin psram_bench`.
 
+The 278 ms is a *random* query against *random* items, where early termination never fires. On
+clustered data with a query near a cluster it prunes hard: the same 12,000-item PSRAM scan measures
+**59.7 ms** (§8). That, not 278 ms, is the baseline an index has to beat on realistic data.
+
 ## 6. IVF index: sub-linear nearest (host)
 
 An HDC-native inverted-file index: centroid = `Hv::bundle` (majority), assign/probe = `Hv::hamming`,
@@ -83,5 +87,66 @@ k-means in Hamming. Measured vs the linear scan, N = 12,000:
 | uniform-random (no structure) | ~2% | n/a (no index helps) |
 
 On structured data (which real sensor and embedding data is), IVF finds the true nearest essentially
-always, at ~√N cost, so the 278 ms PSRAM scan above would drop to **~7 ms**. On uniform-random data no
-index helps: the honest curse-of-dimensionality boundary. `cargo run --release --example ivf_eval`.
+always, at ~√N cost. On uniform-random data no index helps: the honest curse-of-dimensionality
+boundary. `cargo run --release --example ivf_eval`.
+
+The 37× is a **compare-count ratio, not wall-clock**. §8 measures both for a comparable index and
+finds compare count over-predicts on-chip speedup by ~4×, because an index trades many sequential
+PSRAM reads for few random ones. Treat every compare-count figure here as an upper bound.
+
+## 7. RejectNet: one-compare rejection (ESP32-S3)
+
+`nearest` terminates early only when a close match tightens the bound, so an *anomalous* query prunes
+nothing and pays the full scan. The linear scan is therefore slowest exactly on the path a detector
+exists to catch. `RejectNet` bundles every enrolled vector into one `Hv`, so a single `hamming`
+answers "is anything here close at all?" for the whole store.
+
+Measured on-chip, N = 64 coherent baselines (spread 100 bits, margin 150):
+
+| query | `nearest` | reject + scan | gain |
+|---|---|---|---|
+| **anomaly** (nothing close) | 765 µs | **7 µs** | **109×** |
+| normal (a fresh clean reading) | 742 µs | 749 µs | ~1% cost |
+
+Correct on 8/8 anomalies and 0/8 normals on-device. The margin is a guarantee, not a tuning knob:
+Hamming is a metric, so any query within `margin` bits of an enrolled vector is *structurally* unable
+to be rejected. Usefulness depends on how coherent the store is, not how large it is: 256 enrolled
+baselines separate as well as 4 (separation ~1946 bits), while 256 *unrelated* vectors collapse to 7
+bits and the net simply stops rejecting. That degradation is fail-safe, never wrong.
+`cd nimblecube-esp32 && cargo run --release --bin reject_bench`.
+
+## 8. Net tree: an incremental index, host and on-chip
+
+Cells are `Hv::bundle` superpositions, assigned greedily as items arrive. No k-means, no training
+pass, so enrollment stays one-shot. Host eval, N = 12,000, 200 clusters, 500 queries:
+
+| index | recall@1 | compares | vs linear |
+|---|---|---|---|
+| **net tree** (cap 64) | **100%** | **260** | 46× |
+| IVF (§6) | 100% | 321 | 37× |
+| insertion-order cells (control) | 1.8% | 249 | n/a (wrong answers) |
+| net tree, uniform-random data | 100% | 12,001 | 1.0× |
+
+The control row matters: cells filled in arrival order score 1.8%, so the greedy assignment is doing
+all the work. Enrollment costs ~2.75M compare-equivalents against IVF's ~12M, and can be done one
+item at a time. On unstructured data the tree **fails safe**, degenerating to one cell per item so it
+stays correct and merely stops helping, where IVF returns wrong answers at ~2% recall. The cost of
+that is O(n²) enrollment when nothing clusters.
+
+Then the same index on real hardware, N = 12,000 in PSRAM:
+
+| | per query | recall |
+|---|---|---|
+| linear scan | 59,652 µs | 100% by definition |
+| **net tree** (nprobe 1) | **5,401 µs** | **20/20** |
+| net tree (nprobe 2) | 6,685 µs | 20/20 |
+
+**Recall transferred; the speedup did not.** 46× of compare-count became **11×** of wall-clock,
+because per-compare cost is not constant: the linear scan streams PSRAM sequentially (4.97 µs per
+compare) while the tree fetches scattered cells and members by index (20.8 µs per compare, a 4.2×
+penalty from access pattern alone). Building the index is 73 s for a bulk load of 12,000, about 6 ms
+per insert. `cd nimblecube-esp32 && cargo run --release --bin net_tree_bench`.
+
+Recall is the number to watch rather than speed. The detector's decision is `d > threshold`, so a
+missed nearest returns an inflated `d` and shows up as a **false alarm**. At 100% recall the index is
+behaviorally identical to a full scan, which is what makes it safe to substitute.
