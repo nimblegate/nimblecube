@@ -58,32 +58,18 @@ impl<const CH: usize, const L: usize> FeatureEncoder<CH, L> {
         FeatureEncoder { channels, levels, ranges }
     }
 
-    /// Encode a feature vector into one hypervector. Bind and bundle are fused
-    /// into a single word-at-a-time pass, so no per-channel contribution is
-    /// ever materialized: each output word is derived straight from the level
-    /// and channel words. Bit-identical to the former
-    /// `Hv::bundle(&[level.bind(channel), ..])`, tie-break included, which
-    /// `tests::encode_reference` pins as the oracle.
+    /// Encode a feature vector into one hypervector. Alloc-free: builds the
+    /// per-channel contributions on the stack and bundles them.
     ///
-    /// `CH == 3` takes a closed-form majority (`(a&b)|(a&c)|(b&c)`) instead of
-    /// the bit-sliced counters. `CH` is a const generic, so the branch folds at
-    /// monomorphization.
-    /// Encode a feature vector into one hypervector. Alloc-free.
-    ///
-    /// All level indices are resolved before any hypervector work begins.
-    /// Interleaving `quantize`'s integer division with the 512-byte binds costs
-    /// measurably more than the two-pass form (host: 1.03x to 1.33x depending
-    /// on `CH`), and the split leaves the bind loop simple enough to vectorize.
-    ///
-    /// Bit-identical to the former single-pass version, which
-    /// `tests::encode_reference` pins as the oracle.
+    /// Hoisting `quantize` into its own pass ahead of the binds was measured
+    /// and reverted: 1.21x on an x86 host, but 2% slower on the ESP32-S3
+    /// (92695 vs 94549 ns/op, CH=3 L=16). Host timings do not transfer here.
     pub fn encode(&self, feats: &[i32; CH]) -> Hv {
-        let idx: [usize; CH] = core::array::from_fn(|i| {
+        let contrib: [Hv; CH] = core::array::from_fn(|i| {
             let (min, max) = self.ranges[i];
-            quantize(feats[i], min, max, L)
+            let idx = quantize(feats[i], min, max, L);
+            self.levels[idx].bind(&self.channels[i])
         });
-        let contrib: [Hv; CH] =
-            core::array::from_fn(|i| self.levels[idx[i]].bind(&self.channels[i]));
         Hv::bundle(&contrib)
     }
 }
