@@ -115,6 +115,12 @@ baselines separate as well as 4 (separation ~1946 bits), while 256 *unrelated* v
 bits and the net simply stops rejecting. That degradation is fail-safe, never wrong.
 `cd nimblecube-esp32 && cargo run --release --bin reject_bench`.
 
+Those separations were measured on uniform-random vectors, where the noise floor has
+sd = √4096/2 = **32 bits**. SimHash-projected embeddings carry a second term (input wobble,
+`DIM/π/√D` ≈ 47, measured in `simhash_eval`), giving **sd ≈ 57**. The same bit separations are
+therefore worth ~1.8× fewer standard deviations on embedding data, so treat this envelope as
+optimistic for that case until it is measured there.
+
 ## 8. Net tree: an incremental index, host and on-chip
 
 Cells are `Hv::bundle` superpositions, assigned greedily as items arrive. No k-means, no training
