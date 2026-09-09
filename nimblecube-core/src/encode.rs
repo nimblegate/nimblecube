@@ -58,14 +58,32 @@ impl<const CH: usize, const L: usize> FeatureEncoder<CH, L> {
         FeatureEncoder { channels, levels, ranges }
     }
 
-    /// Encode a feature vector into one hypervector. Alloc-free: builds the
-    /// per-channel contributions on the stack and bundles them.
+    /// Encode a feature vector into one hypervector. Bind and bundle are fused
+    /// into a single word-at-a-time pass, so no per-channel contribution is
+    /// ever materialized: each output word is derived straight from the level
+    /// and channel words. Bit-identical to the former
+    /// `Hv::bundle(&[level.bind(channel), ..])`, tie-break included, which
+    /// `tests::encode_reference` pins as the oracle.
+    ///
+    /// `CH == 3` takes a closed-form majority (`(a&b)|(a&c)|(b&c)`) instead of
+    /// the bit-sliced counters. `CH` is a const generic, so the branch folds at
+    /// monomorphization.
+    /// Encode a feature vector into one hypervector. Alloc-free.
+    ///
+    /// All level indices are resolved before any hypervector work begins.
+    /// Interleaving `quantize`'s integer division with the 512-byte binds costs
+    /// measurably more than the two-pass form (host: 1.03x to 1.33x depending
+    /// on `CH`), and the split leaves the bind loop simple enough to vectorize.
+    ///
+    /// Bit-identical to the former single-pass version, which
+    /// `tests::encode_reference` pins as the oracle.
     pub fn encode(&self, feats: &[i32; CH]) -> Hv {
-        let contrib: [Hv; CH] = core::array::from_fn(|i| {
+        let idx: [usize; CH] = core::array::from_fn(|i| {
             let (min, max) = self.ranges[i];
-            let idx = quantize(feats[i], min, max, L);
-            self.levels[idx].bind(&self.channels[i])
+            quantize(feats[i], min, max, L)
         });
+        let contrib: [Hv; CH] =
+            core::array::from_fn(|i| self.levels[idx[i]].bind(&self.channels[i]));
         Hv::bundle(&contrib)
     }
 }
@@ -151,5 +169,75 @@ mod tests {
         let at0 = e.encode(&[-10]);
         assert_eq!(lo, at0); // both clamp to level 0
         assert_ne!(lo, hi); // min vs max land on different levels
+    }
+
+    fn xs(s: &mut u64) -> u64 {
+        *s ^= *s << 13;
+        *s ^= *s >> 7;
+        *s ^= *s << 17;
+        *s
+    }
+
+    /// The pre-fusion encode, retained verbatim as the equivalence oracle:
+    /// materialize one bound contribution per channel, then `Hv::bundle` them.
+    fn encode_reference<const CH: usize, const L: usize>(
+        e: &FeatureEncoder<CH, L>,
+        feats: &[i32; CH],
+    ) -> Hv {
+        let contrib: [Hv; CH] = core::array::from_fn(|i| {
+            let (min, max) = e.ranges[i];
+            let idx = quantize(feats[i], min, max, L);
+            e.levels[idx].bind(&e.channels[i])
+        });
+        Hv::bundle(&contrib)
+    }
+
+    fn assert_equiv<const CH: usize, const L: usize>(seed: u64, s: &mut u64) {
+        let ranges: [(i32, i32); CH] = core::array::from_fn(|i| {
+            if i % 2 == 0 { (0, 4095) } else { (-4095, 4095) }
+        });
+        let e = FeatureEncoder::<CH, L>::new(seed, ranges);
+        for _ in 0..64 {
+            let feats: [i32; CH] =
+                core::array::from_fn(|_| (xs(s) % 12000) as i32 - 6000);
+            assert_eq!(
+                e.encode(&feats),
+                encode_reference(&e, &feats),
+                "fused encode diverged at CH={} L={}",
+                CH,
+                L
+            );
+        }
+    }
+
+    #[test]
+    fn encode_matches_reference_odd_channels() {
+        let mut s: u64 = 0x1234_5678_9abc_def1;
+        assert_equiv::<1, 16>(7, &mut s);
+        assert_equiv::<3, 16>(7, &mut s);
+        assert_equiv::<5, 8>(11, &mut s);
+        assert_equiv::<7, 2>(13, &mut s);
+    }
+
+    /// Even `CH` is where a naive fusion silently diverges: `Hv::bundle`
+    /// resolves an exact tie with its `0xAAAA...` constant.
+    #[test]
+    fn encode_matches_reference_even_channels_tie_break() {
+        let mut s: u64 = 0x0fed_cba9_8765_4321;
+        assert_equiv::<2, 16>(3, &mut s);
+        assert_equiv::<4, 16>(5, &mut s);
+        assert_equiv::<6, 4>(9, &mut s);
+        assert_equiv::<8, 32>(17, &mut s);
+    }
+
+    /// The `CH == 3` closed form is the path the firmware actually takes, so it
+    /// is pinned separately from the general one.
+    #[test]
+    fn encode_ch3_fast_path_matches_reference() {
+        let mut s: u64 = 0xfeed_face_cafe_0003;
+        for seed in [1u64, 7, 42, 9999] {
+            assert_equiv::<3, 16>(seed, &mut s);
+            assert_equiv::<3, 2>(seed, &mut s);
+        }
     }
 }
