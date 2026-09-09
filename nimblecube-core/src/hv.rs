@@ -107,7 +107,7 @@ impl Hv {
             return vectors[0].clone();
         }
         // Word-parallel bit-sliced majority - bit-identical to the former scalar loop,
-        // incl. the even-n tie-break. See docs/superpowers/specs/2026-06-18-bundle-wordparallel-design.md.
+        // incl. the even-n tie-break, which `tests::bundle_scalar` pins as the oracle.
         let p_bits = (usize::BITS - n.leading_zeros()) as usize;
         let half = n / 2;
         let tie_const: u64 = if n % 2 == 0 { 0xAAAA_AAAA_AAAA_AAAA } else { 0 };
