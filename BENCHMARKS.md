@@ -201,3 +201,37 @@ majority (`(a&b)|(a&c)|(b&c)`) would, which is the obvious lever and is **not ye
 > in three different binaries in one session, from code layout and instruction-cache effects alone.
 > That ±20% is larger than most optimizations worth chasing, so only compare variants built into the
 > **same binary**, and treat any single absolute encode number as approximate.
+
+## 10. Encoder codebook: encode as a flash lookup
+
+`FeatureEncoder<CH,L>` is frozen once seed and ranges are chosen, so it can only ever emit `L^CH`
+distinct vectors. At CH=3, L=16 that is 4,096 entries × 512 B = **2 MB**, against 16 MB of flash.
+Encoding then becomes an index into memory-mapped flash instead of ~100 µs of bind and bundle.
+All 4,096 entries verify **bit-identical** to the computed encoder on-device.
+
+The win is entirely a **caching** story: 2 MB cannot fit the flash cache, so a cold 512-byte read
+costs ~63 µs by itself. Measured with `hamming` included, since encoding is always followed by a
+compare:
+
+| locality | encode + `hamming` | vs computed |
+|---|---|---|
+| computed encoder (baseline) | 105.9 µs | 1.0× |
+| codebook, hot entry (repeat readings) | **7.8 µs** | **13.6×** |
+| codebook, 8 entries cycling | 12.0 µs | 8.8× |
+| codebook, uniform over all 4,096 | 70.6 µs | 1.5× |
+
+Lookup itself (quantize + index) is 2.1 µs and `hamming` alone is 8.0 µs, so in the hot case the
+flash read is effectively free. **Quote the number that matches your access pattern.** A stable
+sensor repeats its level tuple (which is why the MQ-2 demo sees `d=0`) and lands in the hot case;
+one sweeping across levels lands in the cold case and gains almost nothing.
+
+Generate with `cargo run --release --example gen_codebook -- nimblecube-esp32/codebook.bin`, then
+`cd nimblecube-esp32 && cargo run --release --bin codebook_bench`.
+
+The table scales as `L^CH` × 512 B, so CH=3, L=16 fits in 2 MB while CH=4, L=16 would need 33 MB.
+Unlike precomputing the *answers*, freezing only the encoder **preserves runtime enrollment and
+search**: the store stays mutable.
+
+**Untested idea:** hold the codebook in PSRAM rather than flash. §8 measured PSRAM random reads at
+~12.8 µs per 512 B against flash's ~63 µs here, and the whole table can be computed at boot in
+~0.43 s (4,096 × 105 µs), which would remove the 2 MB of flash entirely. No number claimed.
