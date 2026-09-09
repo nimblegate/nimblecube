@@ -5,7 +5,9 @@ pub mod hv;
 pub mod store;
 pub mod encode;
 pub mod simhash;
+pub mod reject;
 
 pub use hv::{Hv, DIM_BITS, WORDS};
 pub use encode::FeatureEncoder;
 pub use simhash::{simhash_f32, simhash_i32};
+pub use reject::RejectNet;

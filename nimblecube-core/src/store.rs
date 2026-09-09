@@ -38,6 +38,12 @@ impl<const N: usize> FixedStore<N> {
         N
     }
 
+    /// The enrolled vectors, in insertion order. Empty slots are not included,
+    /// so this feeds `RejectNet::rebuild` directly.
+    pub fn slots(&self) -> &[Hv] {
+        &self.slots[..self.len]
+    }
+
     /// Append `(hv, id)`. `Err(StoreFull)` once `len == N`.
     pub fn insert(&mut self, hv: Hv, id: u32) -> Result<(), StoreFull> {
         if self.len >= N {
@@ -110,6 +116,17 @@ mod tests {
         assert_eq!(s.len(), 2);
         assert_eq!(s.insert(Hv::zero(), 12), Err(StoreFull));
         assert_eq!(s.len(), 2);
+    }
+
+    #[test]
+    fn slots_exposes_only_enrolled_prefix() {
+        let mut s = FixedStore::<4>::new();
+        assert!(s.slots().is_empty());
+        s.insert(ones(3), 1).unwrap();
+        s.insert(ones(9), 2).unwrap();
+        assert_eq!(s.slots().len(), 2);
+        assert_eq!(s.slots()[0], ones(3));
+        assert_eq!(s.slots()[1], ones(9));
     }
 
     #[test]
