@@ -19,6 +19,8 @@ Where to change what:
     Host vs device (figure 5)   the two box lists inside the "figure 5" section
     Symmetry (figure 6)         V is the XOR vector, TRI the triangle; keep V == TRI[0]
                                 (placed on the page after the three moves)
+    Diagonal view (figures 7, 8) TOP picks which one-bit corner points up
+                                (placed on the page after the symmetry section)
 
 The prose and captions in template.html are static text; they describe the default settings.
 """
@@ -243,6 +245,75 @@ fig6 += [f'<line x1="378" y1="{CY}" x2="540" y2="{CY}" class="s-ink" stroke-widt
          f'<text x="460" y="{CY - 10}" text-anchor="middle" class="t-sans">with {V}</text>',
          f'<text x="460" y="{CY + 24}" text-anchor="middle" class="t-muted">d(x⊕v, y⊕v) = d(x, y)</text>']
 
+# ---------- figures 7 and 8: the cube seen straight down its long diagonal ----------
+TOP = "001"   # which one-bit corner points straight up
+pop = lambda k: k.count("1")
+rot3 = lambda k: k[-1] + k[:-1]                                   # permute by 1, for 3 bits
+comp = lambda k: "".join("1" if c == "0" else "0" for c in k)     # XOR with 111
+LAYER1 = [TOP, rot3(TOP), rot3(rot3(TOP))]
+LAYER2 = [comp(k) for k in LAYER1]
+def diag_view(cx, cy, scale):
+    """Exact orthographic view down the 000 -> 111 axis, turned so TOP points up."""
+    e1 = (1 / math.sqrt(2), -1 / math.sqrt(2), 0.0)
+    e2 = (1 / math.sqrt(6), 1 / math.sqrt(6), -2 / math.sqrt(6))
+    raw = {bits(c): (sum(a * b for a, b in zip(c, e1)), sum(a * b for a, b in zip(c, e2)))
+           for c in itertools.product([-1, 1], repeat=3)}
+    turn = math.pi / 2 - math.atan2(raw[TOP][1], raw[TOP][0])
+    return {k: (cx + scale * (u * math.cos(turn) - v * math.sin(turn)),
+                cy - scale * (u * math.sin(turn) + v * math.cos(turn))) for k, (u, v) in raw.items()}
+def star_view(cx, cy, scale, gap, small=False, faint_layer2=False):
+    pt = diag_view(cx, cy, scale)
+    out = [f'<circle cx="{cx}" cy="{cy}" r="{f(scale * math.sqrt(3))}" class="f-sphere s-line" stroke-width="1.2"/>']
+    for a, b in edges:
+        dash = ' stroke-dasharray="4 4"' if "111" in (a, b) else ""
+        out.append(f'<line x1="{f(pt[a][0])}" y1="{f(pt[a][1])}" x2="{f(pt[b][0])}" y2="{f(pt[b][1])}" class="s-ink" stroke-width="1.2"{dash}/>')
+    for layer, cls in ((LAYER2, "s-warm"), (LAYER1, "s-acc")):
+        w = 1.4 if (faint_layer2 and layer is LAYER2) else 2.6
+        out.append('<polygon points="' + " ".join(f"{f(pt[k][0])},{f(pt[k][1])}" for k in layer)
+                   + f'" class="{cls}" stroke-width="{w}" stroke-linejoin="round"/>')
+    for k in LAYER1 + LAYER2:
+        x, y = pt[k]
+        ux, uy = x - cx, y - cy; n = math.hypot(ux, uy)
+        lx, ly = x + gap * ux / n, y + gap * uy / n
+        anchor = "start" if ux > 8 else "end" if ux < -8 else "middle"
+        one = pop(k) == 1
+        out += [f'<circle cx="{f(x)}" cy="{f(y)}" r="{4.5 if small else 5.5}" class="{"f-acc" if one else "f-warm"}"/>',
+                f'<text x="{f(lx)}" y="{f(ly + 4)}" text-anchor="{anchor}" class="{"t-acc" if one else "t-warm"}{" t-small" if small else ""}">{k}</text>']
+    return out, pt
+fig7, _ = star_view(230, 200, 150 / math.sqrt(3), 18)
+fig7 += ['<rect x="192" y="189" width="76" height="22" rx="11" class="f-ground s-line"/>',
+         '<text x="230" y="204" text-anchor="middle">000 / 111</text>']
+
+def arc(cx, cy, r, a0, a1, sweep, mid):
+    x0, y0 = cx + r * math.cos(a0), cy + r * math.sin(a0)
+    x1, y1 = cx + r * math.cos(a1), cy + r * math.sin(a1)
+    return f'<path d="M{f(x0)},{f(y0)} A{r},{r} 0 0,{sweep} {f(x1)},{f(y1)}" class="s-acc" stroke-width="2" marker-end="url(#{mid})"/>'
+fig8 = []
+panels = [("permute", "shift the bits by 1", "= turn the star 120°",
+           [f"{k} → {rot3(k)}" for k in LAYER1], "each triangle turns into itself"),
+          ("XOR 111", "flip every bit", "= turn the star 180°",
+           [f"{k} ↔ {comp(k)}" for k in LAYER1] + ["000 ↔ 111"], "the two triangles swap")]
+for i, (title, l1, l2, maps, note) in enumerate(panels):
+    x0 = 10 + i * 455
+    fig8 += [f'<rect x="{x0}" y="10" width="445" height="250" rx="14" class="f-panel"/>',
+             f'<text x="{x0 + 24}" y="44" class="t-title">{title}</text>',
+             f'<text x="{x0 + 24}" y="72" class="t-sans">{l1}</text>',
+             f'<text x="{x0 + 24}" y="90" class="t-sans">{l2}</text>']
+    fig8 += [f'<text x="{x0 + 24}" y="{128 + 18 * j}" class="t-acc">{m}</text>' for j, m in enumerate(maps)]
+    fig8.append(f'<text x="{x0 + 24}" y="236" class="t-muted t-small">{note}</text>')
+    scx, scy = x0 + 320, 135
+    body, pt = star_view(scx, scy, 70 / math.sqrt(3), 12, small=True, faint_layer2=(i == 0))
+    fig8 += body + [f'<circle cx="{scx}" cy="{scy}" r="3" class="f-ink"/>']
+    if i == 0:
+        ang = lambda k: math.atan2(pt[k][1] - scy, pt[k][0] - scx)
+        for k in LAYER1:
+            a0, a1 = ang(k), ang(rot3(k))
+            d = (a1 - a0 + math.pi) % (2 * math.pi) - math.pi
+            sgn, gap = (1 if d > 0 else -1), math.radians(18)
+            fig8.append(arc(scx, scy, 112, a0 + sgn * gap, a1 - sgn * gap, 1 if sgn > 0 else 0, "f8-arr-acc"))
+    else:
+        fig8.append(arc(scx, scy, 112, math.radians(185), math.radians(355), 1, "f8-arr-acc"))
+
 # ---------- assembly ----------
 def marker(mid, cls):
     return (f'<marker id="{mid}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" '
@@ -259,6 +330,8 @@ FIGURES = {
     "{{SVG4}}": svg("0 0 920 230", "Three operations: bundle makes a point close to all inputs, bind makes a point far from both inputs, permute rotates to mark order.", fig4, marker("f4-arr", "f-ink") + marker("f4-arr-acc", "f-acc")),
     "{{SVG5}}": svg("0 0 920 340", "Host row: text, embedding model, SimHash, hypervector. Device row: MQ-2 sensor, features, codebook, RejectNet, store. Only 512-byte hypervectors cross from host to device.", fig5, marker("f5-arr", "f-ink") + marker("f5-arr-acc", "f-acc")),
     "{{SVG6}}": svg("0 0 920 350", f"Two 3-bit cubes: XOR with {V} moves the triangle {', '.join(TRI)} to {', '.join(moved)}, and its three distances stay the same.", fig6, marker("f6-arr", "f-ink")),
+    "{{SVG7}}": svg("0 0 460 400", "The 3-bit cube seen down its long diagonal: a hexagon whose corners form two triangles, the one-bit corners in teal and the two-bit corners in amber, with 000 and 111 overlapping in the centre.", fig7),
+    "{{SVG8}}": svg("0 0 920 270", f"Two panels: permute turns the star 120 degrees, mapping {', '.join(m for m in panels[0][3])}; XOR with 111 turns it 180 degrees, swapping each corner with its opposite.", fig8, marker("f8-arr-acc", "f-acc")),
 }
 
 GOOGLE_FONTS = re.compile(r'<link rel="stylesheet" href="(https://fonts\.googleapis\.com/[^"]+)">')

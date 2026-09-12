@@ -108,6 +108,7 @@
   .compare tbody th { font-weight: 400; color: var(--muted); }
   .compare td { font-family: var(--mono); font-size: 15px; }
   .compare td.big { color: var(--accent); font-weight: 600; }
+  .compare td.warm-cell { color: var(--warm); font-weight: 600; }
 
   pre {
     margin: 0;
@@ -143,6 +144,7 @@
   .s-ink { stroke: currentColor; fill: none; }
   .s-line { stroke: var(--line); fill: none; }
   .s-acc { stroke: var(--accent); fill: none; }
+  .s-warm { stroke: var(--warm); fill: none; }
   .f-ink { fill: currentColor; }
   .f-muted { fill: var(--muted); }
   .f-acc { fill: var(--accent); }
@@ -243,6 +245,34 @@
   </section>
 
   <section>
+    <h2>The cube seen along its diagonal</h2>
+    <div class="prose">
+      <p>Turn the 3-bit cube until you look straight down its long diagonal, from 000 through the centre to 111. The outline becomes a perfect hexagon, and the two diagonal corners land in the middle, one hidden behind the other. This is the cube figure inside Metatron's Cube.</p>
+      <p>From here the corners sort themselves by how many 1-bits they have. The corners with one 1 form a triangle, the corners with two 1s form the opposite triangle, and together they make the six-pointed star. Its lines are the cube's face diagonals: each joins two corners that differ in exactly 2 bits.</p>
+    </div>
+    <figure>
+      <div class="cube-row">
+        {{SVG7}}
+        <table class="compare">
+          <thead><tr><th>count of 1s</th><th>corners</th><th>in the picture</th></tr></thead>
+          <tbody>
+            <tr><td>0</td><td>000</td><td>centre, in front</td></tr>
+            <tr><td>1</td><td class="big">001 · 100 · 010</td><td>teal triangle</td></tr>
+            <tr><td>2</td><td class="warm-cell">110 · 011 · 101</td><td>amber triangle</td></tr>
+            <tr><td>3</td><td>111</td><td>centre, behind</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <figcaption>Schematic, 3 bits, drawn as an exact orthographic view down the diagonal. 000 sits in front of the centre and 111 directly behind it; solid spokes run from 000, dashed spokes from 111. In 4096 bits the same layers follow the binomial numbers, which pile up in a bell at 2048 ± 32: the warm spike on the distance chart.</figcaption>
+    </figure>
+    <div class="prose"><p>The star's symmetries are nimblecube's own moves. Shifting the bits turns it a third of the way round; flipping every bit turns it halfway and swaps the two triangles. Together the two moves produce its full six-fold symmetry.</p></div>
+    <figure>
+      <div class="scroll">{{SVG8}}</div>
+      <figcaption>For 3 bits, permute by 1 is a cyclic shift of the bit string, which is exactly a rotation of the cube about its diagonal. XOR with 111 flips every bit: a half turn that swaps each corner with its opposite. What the figure means symbolically is outside anything the geometry can say; the shapes themselves are the same mathematics as the rest of this page.</figcaption>
+    </figure>
+  </section>
+
+  <section>
     <h2>What runs where</h2>
     <div class="prose"><p>The line this project keeps coming back to: heavy trained work above it, fast integer memory below it.</p></div>
     <figure>
@@ -251,5 +281,5 @@
     </figure>
   </section>
 
-  <footer>Timings measured on an ESP32-S3 at 240 MHz on 2026-09-09. The cube, the huddle map, the three moves and the symmetry figure are schematic; the distance chart is to scale.</footer>
+  <footer>Timings measured on an ESP32-S3 at 240 MHz on 2026-09-09. The cube, the diagonal view, the huddle map, the three moves and the symmetry figure are schematic; the distance chart is to scale.</footer>
 </main>
