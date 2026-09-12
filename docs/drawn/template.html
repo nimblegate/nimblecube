@@ -1,0 +1,255 @@
+<title>Nimblecube, Drawn</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+  :root {
+    --ground: #F2F5F4;
+    --surface: #FFFFFF;
+    --panel: #E5EDEB;
+    --ink: #14252A;
+    --muted: #586C6F;
+    --line: #A2B4B2;
+    --accent: #0D726E;
+    --warm: #B0600C;
+    --sphere: rgba(13, 114, 110, 0.07);
+    --accent-soft: rgba(13, 114, 110, 0.12);
+    --code-bg: #E5EDEB;
+    --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+    --sans: "Atkinson Hyperlegible", "Verdana", "Segoe UI", sans-serif;
+    --mono: "JetBrains Mono", "SFMono-Regular", "Consolas", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0D1517;
+      --surface: #152326;
+      --panel: #16262A;
+      --ink: #DBE6E4;
+      --muted: #93A6A7;
+      --line: #3E5557;
+      --accent: #45C2B8;
+      --warm: #E69A4B;
+      --sphere: rgba(69, 194, 184, 0.08);
+      --accent-soft: rgba(69, 194, 184, 0.16);
+      --code-bg: #16262A;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0D1517;
+    --surface: #152326;
+    --panel: #16262A;
+    --ink: #DBE6E4;
+    --muted: #93A6A7;
+    --line: #3E5557;
+    --accent: #45C2B8;
+    --warm: #E69A4B;
+    --sphere: rgba(69, 194, 184, 0.08);
+    --accent-soft: rgba(69, 194, 184, 0.16);
+    --code-bg: #16262A;
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.6;
+    padding-inline: 20px;
+  }
+  .page {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding-block: 56px 72px;
+    display: flex;
+    flex-direction: column;
+    gap: 64px;
+  }
+  header, section { display: flex; flex-direction: column; gap: 18px; }
+  .prose { max-width: 66ch; }
+  .prose p { margin: 0; }
+  .prose p + p { margin-top: 12px; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+    margin: 0;
+  }
+  h1, h2 {
+    font-family: var(--display);
+    font-weight: 700;
+    text-wrap: balance;
+    margin: 0;
+    line-height: 1.1;
+  }
+  h1 { font-size: clamp(2.5rem, 6vw, 3.8rem); letter-spacing: -0.02em; }
+  h2 { font-size: clamp(1.45rem, 3vw, 1.9rem); letter-spacing: -0.01em; }
+  .lede { font-size: 1.2rem; max-width: 60ch; margin: 0; }
+  .lede strong { color: var(--accent); }
+
+  figure { margin: 0; display: flex; flex-direction: column; gap: 12px; }
+  .scroll { overflow-x: auto; }
+  .scroll svg { display: block; width: 100%; min-width: 640px; height: auto; }
+  figcaption { color: var(--muted); font-size: 0.93rem; max-width: 70ch; }
+
+  .cube-row {
+    display: grid;
+    grid-template-columns: minmax(0, 460px) minmax(0, 1fr);
+    gap: 32px;
+    align-items: center;
+  }
+  .cube-row svg { display: block; width: 100%; max-width: 460px; height: auto; }
+  @media (max-width: 760px) { .cube-row { grid-template-columns: 1fr; } }
+
+  table.compare { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  .compare th, .compare td { text-align: left; padding: 9px 12px 9px 0; border-bottom: 1px solid var(--line); vertical-align: baseline; }
+  .compare thead th { font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 400; }
+  .compare tbody th { font-weight: 400; color: var(--muted); }
+  .compare td { font-family: var(--mono); font-size: 15px; }
+  .compare td.big { color: var(--accent); font-weight: 600; }
+
+  pre {
+    margin: 0;
+    padding: 18px 20px;
+    background: var(--code-bg);
+    border-radius: 10px;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 15px;
+    line-height: 1.55;
+  }
+  pre .c { color: var(--muted); }
+  pre .k { color: var(--accent); font-weight: 600; }
+  code { font-family: var(--mono); font-size: 0.92em; }
+
+  .facts { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; max-width: 70ch; }
+  .facts li { display: grid; grid-template-columns: 8.5rem 1fr; gap: 14px; align-items: baseline; }
+  .facts b { font-family: var(--mono); font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  @media (max-width: 520px) { .facts li { grid-template-columns: 1fr; gap: 2px; } }
+
+  footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--line); padding-top: 18px; }
+
+  /* SVG styling, all from theme tokens */
+  svg { color: var(--ink); }
+  svg text { font-family: var(--mono); font-size: 12px; fill: currentColor; }
+  svg .t-sans { font-family: var(--sans); font-size: 13px; }
+  svg .t-title { font-family: var(--display); font-size: 16px; font-weight: 700; }
+  svg .t-strong { font-weight: 700; }
+  svg .t-small { font-size: 11px; }
+  svg .t-muted { fill: var(--muted); }
+  svg .t-acc { fill: var(--accent); }
+  svg .t-warm { fill: var(--warm); }
+  .s-ink { stroke: currentColor; fill: none; }
+  .s-line { stroke: var(--line); fill: none; }
+  .s-acc { stroke: var(--accent); fill: none; }
+  .f-ink { fill: currentColor; }
+  .f-muted { fill: var(--muted); }
+  .f-acc { fill: var(--accent); }
+  .f-warm { fill: var(--warm); }
+  .f-ground { fill: var(--ground); }
+  .f-panel { fill: var(--panel); }
+  .f-sphere { fill: var(--sphere); }
+  .f-acc-soft { fill: var(--accent-soft); }
+  .box { fill: var(--surface); stroke: var(--line); stroke-width: 1.2; }
+  .box-warm { fill: var(--surface); stroke: var(--warm); stroke-width: 1.8; }
+</style>
+
+<main class="page">
+  <header>
+    <p class="eyebrow">DIM_BITS = 4096</p>
+    <h1>Nimblecube, Drawn</h1>
+    <p class="lede">You asked whether the space is a sphere or a cube. <strong>It is both.</strong> Every hypervector is a corner of a 4096-dimensional cube, and all of those corners sit on one sphere.</p>
+  </header>
+
+  <section>
+    <h2>A cube, with a sphere through its corners</h2>
+    <div class="prose">
+      <p>Draw it with 3 bits instead of 4096. Each bit is one direction, so 3 bits make an ordinary cube with 8 corners. Every corner is the same distance from the centre, so all 8 touch one sphere.</p>
+      <p>Hamming distance is simply how many edges you walk to get from one corner to another. A fitting picture, for a project called nimblecube.</p>
+    </div>
+    <figure>
+      <div class="cube-row">
+        {{SVG1}}
+        <table class="compare">
+          <thead><tr><th></th><th>the drawing</th><th>nimblecube</th></tr></thead>
+          <tbody>
+            <tr><th>bits, one per direction</th><td>3</td><td class="big">4096</td></tr>
+            <tr><th>corners</th><td>8</td><td class="big">2<sup>4096</sup></td></tr>
+            <tr><th>sphere radius</th><td>√3 ≈ 1.7</td><td class="big">√4096 = 64</td></tr>
+            <tr><th>farthest corner</th><td>3 edges</td><td class="big">4096 edges</td></tr>
+            <tr><th>a random corner</th><td>≈ 1.5 edges</td><td class="big">2048 ± 32</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <figcaption>Schematic, 3 bits. The highlighted path 001 → 011 → 111 walks 2 edges, so their Hamming distance is 2. Corner 110 is the opposite of 001, 3 edges away. The hollow corner 100 is hidden behind the cube.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>Where the size is set</h2>
+    <div class="prose"><p>One line. Every vector, table and distance in the project follows from it.</p></div>
+    <pre><span class="c">// nimblecube-core/src/hv.rs, lines 4 and 6</span>
+<span class="k">pub const</span> DIM_BITS: usize = 4096;
+<span class="k">pub const</span> WORDS: usize = DIM_BITS / 64; <span class="c">// 64 words of 64 bits = 512 bytes</span></pre>
+    <ul class="facts">
+      <li><b>Room</b><span>Never the limit. 2<sup>4096</sup> is about 10<sup>1233</sup> corners, while the observable universe holds about 10<sup>80</sup> atoms.</span></li>
+      <li><b>Resolution</b><span>The real limit. Unrelated corners wobble ±32 bits around 2048, and that wobble decides how many different things you can tell apart.</span></li>
+      <li><b>Turn the dial</b><span>Set <code>DIM_BITS</code> to 1024 and the radius becomes 32, the wobble ±16, and every vector 128 bytes instead of 512.</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Why unrelated things are all the same distance</h2>
+    <div class="prose">
+      <p>Pick any corner as your baseline. Almost every other corner sits 2048 bits away, give or take 32. That thin band is the whole trick: real readings that resemble your baseline land far inside it, and chance almost never reaches there.</p>
+    </div>
+    <figure>
+      <div class="scroll">{{SVG2}}</div>
+      <figcaption>Drawn to scale across the full 0 to 4096 range, using the RejectNet run on the ESP32-S3: normal readings measured 96 to 100 bits from the baseline, an unrelated reading measured 2043, and the reject line sat at 250 (radius 100 plus margin 150). Peak heights show shape, not count.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>Huddles and nets</h2>
+    <div class="prose">
+      <p>Similar things huddle together. A bundle is the middle of a huddle: a single point that leans towards every member at once. RejectNet throws one net around the normal huddle, so one comparison tells you whether a reading is anywhere near normal.</p>
+    </div>
+    <figure>
+      <div class="scroll">{{SVG3}}</div>
+      <figcaption>Schematic. A flat map shows who is neighbour to whom, but not true distances: on the real sphere every unrelated pair is about 2048 bits apart, which is what the chart above shows.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>The three moves</h2>
+    <div class="prose"><p>Everything nimblecube does is built from three operations on those corners.</p></div>
+    <figure>
+      <div class="scroll">{{SVG4}}</div>
+      <figcaption>Bundle takes a majority vote, so the result stays close to every input. Bind is XOR, so the result lands about 2048 bits from both inputs: a new place that belongs to neither. Permute rotates the bits, which is how order gets marked, the same job positional encoding does in a transformer.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>The same view from every corner</h2>
+    <div class="prose">
+      <p>XOR every corner with the same vector and each one moves somewhere new, yet every distance between them stays exactly as it was: <code>d(x ⊕ v, y ⊕ v) = d(x, y)</code>, because the <code>v</code> cancels out. The right <code>v</code> can carry any corner onto any other, so every corner has to see the same view. There is no special place anywhere in the space.</p>
+      <p>Bind and permute are both moves like this: they relocate everything without stretching anything. Bundle is the only move that breaks the symmetry, by making one spot special, the middle of a huddle. That is why it is the move that creates memory.</p>
+    </div>
+    <figure>
+      <div class="scroll">{{SVG6}}</div>
+      <figcaption>Schematic, 3 bits. Standing on corner 101, XOR with 101 carries you to 000 and brings the whole triangle along: 101, 111 and 010 become 000, 010 and 111, and their distances stay 1, 2 and 3.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>What runs where</h2>
+    <div class="prose"><p>The line this project keeps coming back to: heavy trained work above it, fast integer memory below it.</p></div>
+    <figure>
+      <div class="scroll">{{SVG5}}</div>
+      <figcaption>SimHash measured 607 ms per vector on the chip, so it stays on the host with the embedding model. Everything on the device row is integer-only and learns from a few examples. Only 512-byte hypervectors, or 2-byte codebook indices, ever cross the line.</figcaption>
+    </figure>
+  </section>
+
+  <footer>Timings measured on an ESP32-S3 at 240 MHz on 2026-09-09. The cube, the huddle map, the three moves and the symmetry figure are schematic; the distance chart is to scale.</footer>
+</main>
