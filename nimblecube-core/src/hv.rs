@@ -145,7 +145,7 @@ impl Hv {
     /// Cyclic right-rotation of the whole 4096-bit vector by `shift` bits
     /// (direction is symmetric for HDC; only invertibility matters).
     /// Invertible: `v.permute(s).permute(DIM_BITS - s) == v`. Used to encode
-    /// roles/positions (reserved for future structured encoders).
+    /// roles/positions (see `examples/dna_eval.rs`: position inside a k-mer).
     pub fn permute(&self, shift: usize) -> Hv {
         let shift = shift % DIM_BITS;
         if shift == 0 {
